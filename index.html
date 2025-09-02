@@ -46,21 +46,25 @@
 
 <script>
     async function loadCSV() {
-        // CSVファイルへのパス
         const csvFilePath = '全有給情報.csv';
         
         try {
             const response = await fetch(csvFilePath);
             const csvText = await response.text();
+            
+            // UTF-8 with BOMの可能性を考慮
+            const cleanCsvText = csvText.startsWith('\ufeff') ? csvText.substring(1) : csvText;
 
-            // CSVデータを解析
-            const rows = csvText.trim().split('\n');
+            const rows = cleanCsvText.trim().split('\n');
             const data = rows.map(row => row.split(','));
 
-            // HTMLテーブルを作成
+            if (data.length <= 1) {
+                document.getElementById('paid-leave-data').textContent = 'データがありません。';
+                return;
+            }
+
             const table = document.createElement('table');
 
-            // ヘッダー行を作成
             const thead = table.createTHead();
             const headerRow = thead.insertRow();
             data[0].forEach(cellData => {
@@ -69,7 +73,6 @@
                 headerRow.appendChild(th);
             });
 
-            // データ行を作成
             const tbody = table.createTBody();
             for (let i = 1; i < data.length; i++) {
                 const row = tbody.insertRow();
@@ -79,16 +82,14 @@
                 });
             }
 
-            // 指定したIDの要素にテーブルを追加
             document.getElementById('paid-leave-data').appendChild(table);
 
         } catch (error) {
             console.error('CSVファイルの読み込み中にエラーが発生しました:', error);
-            document.getElementById('paid-leave-data').textContent = 'データの読み込みに失敗しました。';
+            document.getElementById('paid-leave-data').textContent = 'データの読み込みに失敗しました。ファイルが存在するか確認してください。';
         }
     }
 
-    // ページ読み込み完了後に関数を実行
     window.onload = loadCSV;
 </script>
 
