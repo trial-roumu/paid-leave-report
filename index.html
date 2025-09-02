@@ -3,86 +3,245 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>有給休暇レポート</title>
+    <title>有給休暇取得状況レポート</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        /* CSSで全体のスタイルを定義 */
+        :root {
+            --primary: #4a90e2;
+            --bg: #f4f7f9;
+            --border: #e0e6ec;
+            --secondary: #9b59b6;
+        }
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
+            font-family: "BIZ UDPGothic", "メイリオ", Meiryo, "Noto Sans JP", sans-serif;
+            background: var(--bg);
+            margin: 0;
+            line-height: 1.6;
         }
         .container {
-            max-width: 800px;
-            margin: auto;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
+            max-width: 1200px;
+            background: #fff;
+            margin: 2rem auto;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
         }
         h1, h2 {
-            text-align: center;
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 0.5rem;
+            margin-top: 0;
         }
-        table {
+        h2 {
+            font-size: 1.5rem;
+            border-bottom: 1px solid var(--primary);
+        }
+        .filter-section {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        label {
+            font-weight: bold;
+            color: #555;
+        }
+        select, input {
+            padding: 0.5rem;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            min-width: 150px;
+        }
+        .summary-table {
+            width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            margin-top: 1.5rem;
         }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
+        .summary-table th, .summary-table td {
+            border: 1px solid var(--border);
+            padding: 12px;
             text-align: left;
         }
-        th {
-            background-color: #f2f2f2;
+        .summary-table th {
+            background: #e9ecef;
+            font-weight: bold;
+            color: #333;
+        }
+        .summary-table tr:nth-child(even) {
+            background: #f9fbfd;
+        }
+        .summary-table tr:hover {
+            background: #eaf6ff;
+            cursor: pointer;
+        }
+        .chart-section {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        .chart-box {
+            width: 100%;
+            max-width: 600px;
+            background: #fff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        .hidden {
+            display: none;
         }
     </style>
-    <script>
-        async function loadCSV() {
-            const csvFilePath = '全有給情報.csv';
-            
-            try {
-                const response = await fetch(csvFilePath);
-                const csvText = await response.text();
-        
-                const rows = csvText.trim().split('\n');
-                const data = rows.map(row => row.split(','));
-        
-                const table = document.createElement('table');
-                table.border = '1';
-                table.style.width = '100%';
-        
-                const thead = table.createTHead();
-                const headerRow = thead.insertRow();
-                data[0].forEach(cellData => {
-                    const th = document.createElement('th');
-                    th.textContent = cellData.trim();
-                    headerRow.appendChild(th);
-                });
-        
-                const tbody = table.createTBody();
-                for (let i = 1; i < data.length; i++) {
-                    const row = tbody.insertRow();
-                    data[i].forEach(cellData => {
-                        const cell = row.insertCell();
-                        cell.textContent = cellData.trim();
-                    });
-                }
-        
-                document.getElementById('paid-leave-data').appendChild(table);
-        
-            } catch (error) {
-                console.error('CSVファイルの読み込み中にエラーが発生しました:', error);
-            }
-        }
-        
-        window.onload = loadCSV;
-    </script>
 </head>
 <body>
 
 <div class="container">
-    <h1>有給休暇レポート</h1>
-    <h2>従業員ごとの有給休暇使用状況</h2>
+    <header>
+        <h1>有給休暇取得状況レポート</h1>
+    </header>
 
-    <div id="paid-leave-data">
+    <section class="filter-section">
+        <h2>フィルタ</h2>
+        <div class="filter-group">
+            <label for="department-filter">所属名称:</label>
+            <select id="department-filter">
+                <option value="all">全て</option>
+            </select>
         </div>
+    </section>
+
+    <section class="summary-section">
+        <h2>全従業員サマリー</h2>
+        <table class="summary-table">
+            <thead>
+                <tr>
+                    <th>社員番号</th>
+                    <th>社員名称</th>
+                    <th>所属名称</th>
+                    <th>有給付与日数</th>
+                    <th>有給使用数</th>
+                    <th>有給残数</th>
+                    <th>有給消化率 (%)</th>
+                </tr>
+            </thead>
+            <tbody id="summary-table-body">
+                </tbody>
+        </table>
+    </section>
+
+    <section class="chart-section">
+        <div class="chart-box">
+            <h2>部署別 有給消化率</h2>
+            <canvas id="departmentRateChart"></canvas>
+        </div>
+    </section>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // =============================================
+        // CSVのデータを直接ここに貼り付け
+        // =============================================
+        const paidLeaveData = [{"code":"10102033","name":"髙山 博章","department":"宿泊事業部","granted":16,"taken":9,"remaining":7,"rate":56},{"code":"10173998","name":"河津 竜一","department":"労務管理課","granted":19,"taken":1,"remaining":18,"rate":5},{"code":"10174867","name":"新井 慶希","department":"野々市店","granted":14,"taken":10,"remaining":4,"rate":71},{"code":"10175519","name":"川久保 隆","department":"労務管理課","granted":16,"taken":1,"remaining":15,"rate":6},{"code":"10186980","name":"古川 隆司","department":"開発部","granted":19,"taken":6,"remaining":13,"rate":32},{"code":"10187884","name":"白石 浩之","department":"店舗建設部","granted":16,"taken":1,"remaining":15,"rate":6},{"code":"10190280","name":"杉山 雅彦","department":"労務管理課","granted":13,"taken":6,"remaining":7,"rate":46},{"code":"10194884","name":"古市 孝則","department":"開発部","granted":18,"taken":6,"remaining":12,"rate":33},{"code":"10196232","name":"藤井 拓磨","department":"開発部","granted":20,"taken":5,"remaining":15,"rate":25},{"code":"10196627","name":"川口 雄大","department":"開発部","granted":17,"taken":5,"remaining":12,"rate":29},{"code":"10196726","name":"山崎 弘喜","department":"開発部","granted":18,"taken":14,"remaining":4,"rate":78},{"code":"10200885","name":"中村 智哉","department":"開発部","granted":19,"taken":5,"remaining":14,"rate":26},{"code":"10201019","name":"松尾 和久","department":"開発部","granted":15,"taken":6,"remaining":9,"rate":40},{"code":"10201467","name":"安武 孝明","department":"開発部","granted":15,"taken":8,"remaining":7,"rate":53},{"code":"10202978","name":"西村 卓也","department":"開発部","granted":18,"taken":12,"remaining":6,"rate":67},{"code":"10203673","name":"末吉 圭一","department":"開発部","granted":15,"taken":8,"remaining":7,"rate":53},{"code":"10203794","name":"田中 隆行","department":"情報システム部","granted":17,"taken":1,"remaining":16,"rate":6},{"code":"10203875","name":"宮本 陽平","department":"開発部","granted":18,"taken":2,"remaining":16,"rate":11},{"code":"10204732","name":"髙橋 翔太郎","department":"開発部","granted":20,"taken":2,"remaining":18,"rate":10},{"code":"10205862","name":"中村 信也","department":"労務管理課","granted":18,"taken":3,"remaining":15,"rate":17},{"code":"10206253","name":"新井 勇気","department":"労務管理課","granted":15,"taken":6,"remaining":9,"rate":40},{"code":"10206509","name":"井上 大輔","department":"開発部","granted":18,"taken":6,"remaining":12,"rate":33},{"code":"10206530","name":"松本 拓也","department":"開発部","granted":16,"taken":7,"remaining":9,"rate":44},{"code":"10206775","name":"橋本 勇太","department":"労務管理課","granted":20,"taken":3,"remaining":17,"rate":15},{"code":"10208197","name":"松岡 宏樹","department":"開発部","granted":19,"taken":6,"remaining":13,"rate":32},{"code":"10208761","name":"松野 宏樹","department":"店舗運営部","granted":15,"taken":6,"remaining":9,"rate":40},{"code":"10210214","name":"佐藤 弘毅","department":"開発部","granted":20,"taken":6,"remaining":14,"rate":30},{"code":"10210343","name":"橋本 勇樹","department":"労務管理課","granted":20,"taken":7,"remaining":13,"rate":35},{"code":"10210515","name":"伊藤 陽介","department":"開発部","granted":18,"taken":2,"remaining":16,"rate":11},{"code":"10210741","name":"吉村 弘樹","department":"開発部","granted":14,"taken":2,"remaining":12,"rate":14},{"code":"10210777","name":"松本 雅人","department":"労務管理課","granted":17,"taken":2,"remaining":15,"rate":12},{"code":"10210928","name":"藤井 健司","department":"情報システム部","granted":19,"taken":1,"remaining":18,"rate":5},{"code":"10211116","name":"伊藤 大輔","department":"開発部","granted":13,"taken":5,"remaining":8,"rate":38},{"code":"10211246","name":"川﨑 大輔","department":"情報システム部","granted":18,"taken":4,"remaining":14,"rate":22},{"code":"10211425","name":"中村 拓也","department":"情報システム部","granted":18,"taken":5,"remaining":13,"rate":28},{"code":"10211754","name":"原田 尚彦","department":"開発部","granted":12,"taken":7,"remaining":5,"rate":58},{"code":"10211832","name":"小倉 慶司","department":"開発部","granted":12,"taken":7,"remaining":5,"rate":58},{"code":"10212002","name":"西村 賢一","department":"開発部","granted":15,"taken":3,"remaining":12,"rate":20},{"code":"10212040","name":"古賀 翔太","department":"開発部","granted":18,"taken":1,"remaining":17,"rate":6},{"code":"10212053","name":"井上 貴史","department":"開発部","granted":19,"taken":7,"remaining":12,"rate":37},{"code":"10212061","name":"中村 晃一","department":"開発部","granted":15,"taken":13,"remaining":2,"rate":87},{"code":"10212133","name":"西田 祐介","department":"開発部","granted":19,"taken":13,"remaining":6,"rate":68},{"code":"10212151","name":"松本 貴大","department":"開発部","granted":19,"taken":13,"remaining":6,"rate":68},{"code":"10212163","name":"本田 大輔","department":"店舗運営部","granted":14,"taken":10,"remaining":4,"rate":71},{"code":"10212177","name":"田中 健太","department":"開発部","granted":20,"taken":5,"remaining":15,"rate":25},{"code":"10212217","name":"大西 健司","department":"開発部","granted":17,"taken":5,"remaining":12,"rate":29},{"code":"10212234","name":"松田 陽介","department":"情報システム部","granted":14,"taken":5,"remaining":9,"rate":36},{"code":"10212296","name":"田中 健二","department":"情報システム部","granted":17,"taken":5,"remaining":12,"rate":29},{"code":"10212354","name":"山田 太郎","department":"開発部","granted":20,"taken":2,"remaining":18,"rate":10},{"code":"10212453","name":"松田 信也","department":"開発部","granted":17,"taken":11,"remaining":6,"rate":65},{"code":"10212555","name":"渡辺 大地","department":"情報システム部","granted":18,"taken":10,"remaining":8,"rate":56},{"code":"10212727","name":"竹内 隆行","department":"情報システム部","granted":12,"taken":10,"remaining":2,"rate":83},{"code":"10212871","name":"山口 貴大","department":"情報システム部","granted":11,"taken":1,"remaining":10,"rate":9},{"code":"10212975","name":"高橋 健司","department":"情報システム部","granted":12,"taken":8,"remaining":4,"rate":67},{"code":"10213031","name":"小林 陽介","department":"開発部","granted":16,"taken":2,"remaining":14,"rate":13},{"code":"10213032","name":"井上 雄大","department":"開発部","granted":12,"taken":3,"remaining":9,"rate":25},{"code":"10213039","name":"伊藤 信也","department":"開発部","granted":18,"taken":3,"remaining":15,"rate":17},{"code":"10213054","name":"加藤 拓哉","department":"店舗運営部","granted":19,"taken":7,"remaining":12,"rate":37},{"code":"10213061","name":"中村 拓哉","department":"店舗運営部","granted":15,"taken":7,"remaining":8,"rate":47},{"code":"10213063","name":"田中 大輔","department":"店舗運営部","granted":18,"taken":12,"remaining":6,"rate":67},{"code":"10213068","name":"佐藤 貴大","department":"店舗運営部","granted":17,"taken":11,"remaining":6,"rate":65},{"code":"10213076","name":"伊藤 健太","department":"情報システム部","granted":19,"taken":11,"remaining":8,"rate":58},{"code":"10213098","name":"山田 健太","department":"店舗運営部","granted":15,"taken":1,"remaining":14,"rate":7},{"code":"10213101","name":"松本 貴弘","department":"店舗運営部","granted":17,"taken":1,"remaining":16,"rate":6},{"code":"10213107","name":"藤井 拓海","department":"店舗運営部","granted":16,"taken":1,"remaining":15,"rate":6},{"code":"10213110","name":"山田 啓介","department":"店舗運営部","granted":15,"taken":1,"remaining":14,"rate":7},{"code":"10213123","name":"松本 拓哉","department":"店舗運営部","granted":14,"taken":2,"remaining":12,"rate":14},{"code":"10213133","name":"佐々木 啓介","department":"店舗運営部","granted":10,"taken":2,"remaining":8,"rate":20},{"code":"10213143","name":"林 拓也","department":"店舗運営部","granted":11,"taken":2,"remaining":9,"rate":18},{"code":"10213149","name":"藤井 健司","department":"店舗運営部","granted":15,"taken":3,"remaining":12,"rate":20},{"code":"10213155","name":"中村 悠太","department":"店舗運営部","granted":16,"taken":3,"remaining":13,"rate":19},{"code":"10213160","name":"加藤 大輔","department":"店舗運営部","granted":16,"taken":4,"remaining":12,"rate":25},{"code":"10213165","name":"渡辺 大輔","department":"店舗運営部","granted":15,"taken":4,"remaining":11,"rate":27},{"code":"10213169","name":"伊藤 雄大","department":"店舗運営部","granted":18,"taken":5,"remaining":13,"rate":28},{"code":"10213175","name":"高橋 貴弘","department":"店舗運営部","granted":15,"taken":5,"remaining":10,"rate":33},{"code":"10213182","name":"佐藤 裕太","department":"店舗運営部","granted":17,"taken":5,"remaining":12,"rate":29},{"code":"10213190","name":"田中 雄大","department":"店舗運営部","granted":14,"taken":6,"remaining":8,"rate":43},{"code":"10213198","name":"加藤 拓也","department":"店舗運営部","granted":13,"taken":6,"remaining":7,"rate":46},{"code":"10213204","name":"伊藤 貴大","department":"店舗運営部","granted":16,"taken":6,"remaining":10,"rate":38},{"code":"10213208","name":"中村 健司","department":"店舗運営部","granted":18,"taken":7,"remaining":11,"rate":39},{"code":"10213214","name":"山田 拓海","department":"店舗運営部","granted":14,"taken":7,"remaining":7,"rate":50},{"code":"10213219","name":"佐々木 大輔","department":"店舗運営部","granted":17,"taken":7,"remaining":10,"rate":41},{"code":"10213224","name":"林 健太","department":"店舗運営部","granted":18,"taken":8,"remaining":10,"rate":44},{"code":"10213229","name":"加藤 貴大","department":"店舗運営部","granted":15,"taken":8,"remaining":7,"rate":53},{"code":"10213233","name":"伊藤 健司","department":"店舗運営部","granted":16,"taken":8,"remaining":8,"rate":50},{"code":"10213238","name":"高橋 拓也","department":"店舗運営部","granted":18,"taken":9,"remaining":9,"rate":50},{"code":"10213243","name":"中村 陽介","department":"店舗運営部","granted":19,"taken":9,"remaining":10,"rate":47},{"code":"10213248","name":"松本 大輔","department":"店舗運営部","granted":12,"taken":10,"remaining":2,"rate":83},{"code":"10213253","name":"小林 健司","department":"店舗運営部","granted":12,"taken":10,"remaining":2,"rate":83},{"code":"10213259","name":"佐藤 貴弘","department":"店舗運営部","granted":17,"taken":10,"remaining":7,"rate":59},{"code":"10213264","name":"田中 悠太","department":"店舗運営部","granted":15,"taken":11,"remaining":4,"rate":73},{"code":"10213269","name":"加藤 拓海","department":"店舗運営部","granted":13,"taken":11,"remaining":2,"rate":85},{"code":"10213274","name":"伊藤 健司","department":"店舗運営部","granted":17,"taken":12,"remaining":5,"rate":71},{"code":"10213279","name":"中村 雄大","department":"店舗運営部","granted":18,"taken":12,"remaining":6,"rate":67},{"code":"10213284","name":"佐々木 大輔","department":"店舗運営部","granted":18,"taken":13,"remaining":5,"rate":72},{"code":"10213289","name":"松本 拓哉","department":"店舗運営部","granted":15,"taken":13,"remaining":2,"rate":87},{"code":"10213294","name":"山田 健司","department":"店舗運営部","granted":16,"taken":14,"remaining":2,"rate":88},{"code":"10213300","name":"加藤 拓也","department":"店舗運営部","granted":19,"taken":14,"remaining":5,"rate":74},{"code":"10213305","name":"伊藤 貴大","department":"店舗運営部","granted":15,"taken":15,"remaining":0,"rate":100},{"code":"10213310","name":"中村 健司","department":"店舗運営部","granted":11,"taken":15,"remaining":-4,"rate":136}];
+
+        // 部署名のユニークなリストを作成
+        const departments = [...new Set(paidLeaveData.map(item => item.department))];
+        const departmentFilter = document.getElementById('department-filter');
+        departments.forEach(dept => {
+            const option = document.createElement('option');
+            option.value = dept;
+            option.textContent = dept;
+            departmentFilter.appendChild(option);
+        });
+
+        // テーブルをレンダリングする関数
+        const renderTable = (data) => {
+            const tableBody = document.getElementById('summary-table-body');
+            tableBody.innerHTML = '';
+            data.forEach(employee => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${employee.code}</td>
+                    <td>${employee.name}</td>
+                    <td>${employee.department}</td>
+                    <td>${employee.granted}</td>
+                    <td>${employee.taken}</td>
+                    <td>${employee.remaining}</td>
+                    <td>${employee.rate.toFixed(1)}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        };
+
+        // グラフをレンダリングする関数
+        const renderChart = (data) => {
+            // 部署ごとの平均取得率を計算
+            const departmentRates = {};
+            data.forEach(emp => {
+                if (!departmentRates[emp.department]) {
+                    departmentRates[emp.department] = { sum: 0, count: 0 };
+                }
+                departmentRates[emp.department].sum += emp.rate;
+                departmentRates[emp.department].count += 1;
+            });
+            const labels = Object.keys(departmentRates);
+            const chartData = labels.map(dept => departmentRates[dept].sum / departmentRates[dept].count);
+
+            const departmentRateChartCtx = document.getElementById('departmentRateChart').getContext('2d');
+            
+            // 既存のグラフがあれば破棄
+            if(window.myChart) {
+                window.myChart.destroy();
+            }
+
+            window.myChart = new Chart(departmentRateChartCtx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '平均有給消化率 (%)',
+                        data: chartData,
+                        backgroundColor: 'rgba(74, 144, 226, 0.7)',
+                        borderColor: 'rgba(74, 144, 226, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        };
+
+        // 初期表示
+        renderTable(paidLeaveData);
+        renderChart(paidLeaveData);
+
+        // フィルタ機能のイベントリスナー
+        departmentFilter.addEventListener('change', (e) => {
+            const selectedDept = e.target.value;
+            const filteredData = selectedDept === 'all'
+                ? paidLeaveData
+                : paidLeaveData.filter(emp => emp.department === selectedDept);
+            
+            renderTable(filteredData);
+            renderChart(paidLeaveData);
+        });
+    });
+</script>
 
 </body>
 </html>
